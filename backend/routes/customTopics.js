@@ -12,8 +12,10 @@ router.get('/', authenticateToken, async (req, res) => {
     let customTopics;
     
     if (mongoose.connection.readyState === 1) {
+      console.log('Using MongoDB for custom topics');
       customTopics = user.getCustomTopics();
     } else {
+      console.log('Using fallback auth for custom topics');
       customTopics = fallbackAuth.getCustomTopics(user);
     }
     
