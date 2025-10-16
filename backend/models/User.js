@@ -48,7 +48,8 @@ const userSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     },
-    audioUrl: String
+    audioUrl: String,
+    sources: [String]
   }],
   resetPasswordToken: {
     type: String,
@@ -103,10 +104,10 @@ userSchema.methods.canFetchNews = function() {
     return { allowed: true, reason: 'premium' };
   }
   
-  // Free users limited to 1 summary per day
-  if (this.dailyUsageCount >= 1) {
-    return { allowed: false, reason: 'daily_limit_reached', dailyCount: this.dailyUsageCount };
-  }
+    // Free users limited to 10 summaries per day
+    if (this.dailyUsageCount >= 10) {
+      return { allowed: false, reason: 'daily_limit_reached', dailyCount: this.dailyUsageCount };
+    }
   
   return { allowed: true, reason: 'free_quota', dailyCount: this.dailyUsageCount };
 };
@@ -146,7 +147,8 @@ userSchema.methods.addSummaryToHistory = async function(summaryData) {
     topics: summaryData.topics || [],
     length: summaryData.length || 'short',
     timestamp: new Date(),
-    audioUrl: summaryData.audioUrl
+    audioUrl: summaryData.audioUrl,
+    sources: summaryData.sources || []
   };
   
   // Add to beginning of array (most recent first)

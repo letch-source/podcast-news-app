@@ -156,8 +156,8 @@ const fallbackAuth = {
       return { allowed: true, reason: 'premium' };
     }
     
-    // Free users limited to 1 summary per day
-    if (user.dailyUsageCount >= 1) {
+    // Free users limited to 10 summaries per day
+    if (user.dailyUsageCount >= 10) {
       return { allowed: false, reason: 'daily_limit_reached', dailyCount: user.dailyUsageCount };
     }
     

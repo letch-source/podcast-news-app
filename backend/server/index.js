@@ -661,7 +661,7 @@ app.post("/api/summarize", optionalAuth, async (req, res) => {
       if (!usageCheck.allowed) {
         return res.status(429).json({
           error: "Daily limit reached",
-          message: "You've reached your daily limit of 1 summary. Upgrade to Premium for unlimited access.",
+          message: "You've reached your daily limit of 10 summaries. Upgrade to Premium for unlimited access.",
           dailyCount: usageCheck.dailyCount,
           limit: 1
         });
@@ -929,7 +929,7 @@ app.post("/api/summarize/batch", optionalAuth, async (req, res) => {
       if (!usageCheck.allowed) {
         return res.status(429).json({
           error: "Daily limit reached",
-          message: "You've reached your daily limit of 1 summary. Upgrade to Premium for unlimited access.",
+          message: "You've reached your daily limit of 10 summaries. Upgrade to Premium for unlimited access.",
           dailyCount: usageCheck.dailyCount,
           limit: 1
         });
