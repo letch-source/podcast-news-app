@@ -347,4 +347,69 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// Admin endpoint to set user premium status
+router.post('/admin/set-premium', authenticateToken, async (req, res) => {
+  try {
+    const { email, isPremium } = req.body;
+    const adminUser = req.user;
+    
+    // Basic validation
+    if (!email || typeof isPremium !== 'boolean') {
+      return res.status(400).json({ error: 'Email and isPremium status are required' });
+    }
+    
+    // For now, allow any authenticated user to set premium status
+    // In production, you might want to add proper admin role checking
+    
+    let targetUser;
+    if (isDatabaseAvailable()) {
+      const User = require('../models/User');
+      targetUser = await User.findOne({ email: email.toLowerCase() });
+      
+      if (!targetUser) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      // Update premium status
+      targetUser.isPremium = isPremium;
+      await targetUser.save();
+      
+      console.log(`Admin ${adminUser.email} set premium status for ${email} to ${isPremium}`);
+      
+      res.json({ 
+        message: `Premium status updated for ${email}`,
+        user: {
+          email: targetUser.email,
+          isPremium: targetUser.isPremium
+        }
+      });
+    } else {
+      // Fallback for when database is not available
+      targetUser = await fallbackAuth.findUserByEmail(email.toLowerCase());
+      
+      if (!targetUser) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      // Update premium status in fallback
+      targetUser.isPremium = isPremium;
+      fallbackAuth.updateUser(targetUser);
+      
+      console.log(`Admin ${adminUser.email} set premium status for ${email} to ${isPremium} (fallback)`);
+      
+      res.json({ 
+        message: `Premium status updated for ${email}`,
+        user: {
+          email: targetUser.email,
+          isPremium: targetUser.isPremium
+        }
+      });
+    }
+    
+  } catch (error) {
+    console.error('Set premium status error:', error);
+    res.status(500).json({ error: 'Failed to set premium status' });
+  }
+});
+
 module.exports = router;

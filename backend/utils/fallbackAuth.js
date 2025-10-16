@@ -160,6 +160,12 @@ const fallbackAuth = {
     user.dailyUsageCount += 1;
     user.lastUsageDate = new Date();
     return user;
+  },
+  
+  updateUser(updatedUser) {
+    // Update the user in the fallback store
+    fallbackUsers.set(updatedUser.email, updatedUser);
+    return updatedUser;
   }
 };
 
