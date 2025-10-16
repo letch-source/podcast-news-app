@@ -140,7 +140,7 @@ userSchema.methods.getCustomTopics = function() {
 // Summary history management
 userSchema.methods.addSummaryToHistory = async function(summaryData) {
   const historyEntry = {
-    id: summaryData.id || Date.now().toString(),
+    id: summaryData.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     title: summaryData.title,
     summary: summaryData.summary,
     topics: summaryData.topics || [],
