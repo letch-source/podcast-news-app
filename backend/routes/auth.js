@@ -376,16 +376,6 @@ router.post('/admin/set-premium', authenticateToken, async (req, res) => {
       
       console.log(`Admin ${adminUser.email} set premium status for ${email} to ${isPremium}`);
       
-      // Log the admin action
-      const AdminAction = require('../models/AdminAction');
-      await AdminAction.create({
-        adminEmail: adminUser.email,
-        targetEmail: email,
-        action: isPremium ? 'set_premium' : 'set_free',
-        details: `Premium status set to ${isPremium}`,
-        timestamp: new Date()
-      });
-      
       res.json({ 
         message: `Premium status updated for ${email}`,
         user: {
@@ -406,15 +396,6 @@ router.post('/admin/set-premium', authenticateToken, async (req, res) => {
       fallbackAuth.updateUser(targetUser);
       
       console.log(`Admin ${adminUser.email} set premium status for ${email} to ${isPremium} (fallback)`);
-      
-      // Log the admin action in fallback
-      fallbackAuth.logAdminAction({
-        adminEmail: adminUser.email,
-        targetEmail: email,
-        action: isPremium ? 'set_premium' : 'set_free',
-        details: `Premium status set to ${isPremium} (fallback)`,
-        timestamp: new Date()
-      });
       
       res.json({ 
         message: `Premium status updated for ${email}`,
