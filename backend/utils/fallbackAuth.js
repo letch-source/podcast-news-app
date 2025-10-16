@@ -131,6 +131,11 @@ const fallbackAuth = {
     return user.summaryHistory || [];
   },
 
+  async removeSummaryFromHistory(user, summaryId) {
+    user.summaryHistory = user.summaryHistory.filter(entry => entry.id !== summaryId);
+    return user.summaryHistory;
+  },
+
   async clearSummaryHistory(user) {
     user.summaryHistory = [];
     return user.summaryHistory;

@@ -161,6 +161,13 @@ userSchema.methods.addSummaryToHistory = async function(summaryData) {
   return this.summaryHistory;
 };
 
+// Remove specific summary from history
+userSchema.methods.removeSummaryFromHistory = async function(summaryId) {
+  this.summaryHistory = this.summaryHistory.filter(entry => entry.id !== summaryId);
+  await this.save();
+  return this.summaryHistory;
+};
+
 userSchema.methods.getSummaryHistory = function() {
   return this.summaryHistory || [];
 };

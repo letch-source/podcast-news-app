@@ -63,6 +63,29 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Delete specific summary from history
+router.delete('/:summaryId', authenticateToken, async (req, res) => {
+  try {
+    const { summaryId } = req.params;
+    const user = req.user;
+    let summaryHistory;
+    
+    if (mongoose.connection.readyState === 1) {
+      summaryHistory = await user.removeSummaryFromHistory(summaryId);
+    } else {
+      summaryHistory = await fallbackAuth.removeSummaryFromHistory(user, summaryId);
+    }
+    
+    res.json({ 
+      message: 'Summary deleted successfully',
+      summaryHistory 
+    });
+  } catch (error) {
+    console.error('Delete summary error:', error);
+    res.status(500).json({ error: 'Failed to delete summary' });
+  }
+});
+
 // Clear summary history
 router.delete('/', authenticateToken, async (req, res) => {
   try {
