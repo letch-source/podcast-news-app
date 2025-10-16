@@ -4,15 +4,18 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 
 // Simple in-memory user store (for development only)
 const fallbackUsers = new Map();
 
 // Create a fallback user for testing
 const createFallbackUser = async () => {
-  const email = 'test@example.com';
-  const password = 'password123';
+  const email = process.env.FALLBACK_USER_EMAIL || 'test@example.com';
+  const password = process.env.FALLBACK_USER_PASSWORD || 'changeme123';
   const hashedPassword = await bcrypt.hash(password, 10);
   
   const user = {

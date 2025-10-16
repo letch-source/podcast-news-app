@@ -55,7 +55,10 @@ app.use("/api/summary-history", summaryHistoryRoutes);
 
 // --- Config & helpers ---
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || "dev-insecure-secret"; // fallback to avoid "secretOrPrivateKey must have a value"
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 const NEWSAPI_KEY = process.env.NEWSAPI_KEY || "";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
