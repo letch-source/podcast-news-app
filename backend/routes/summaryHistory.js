@@ -12,8 +12,10 @@ router.get('/', authenticateToken, async (req, res) => {
     let summaryHistory;
     
     if (mongoose.connection.readyState === 1) {
+      console.log('Using MongoDB for summary history retrieval');
       summaryHistory = user.getSummaryHistory();
     } else {
+      console.log('Using fallback auth for summary history retrieval');
       summaryHistory = fallbackAuth.getSummaryHistory(user);
     }
     
@@ -42,8 +44,10 @@ router.post('/', authenticateToken, async (req, res) => {
     
     let summaryHistory;
     if (mongoose.connection.readyState === 1) {
+      console.log('Using MongoDB for summary history save');
       summaryHistory = await user.addSummaryToHistory(summaryData);
     } else {
+      console.log('Using fallback auth for summary history save');
       summaryHistory = await fallbackAuth.addSummaryToHistory(user, summaryData);
     }
     
@@ -71,8 +75,10 @@ router.delete('/:summaryId', authenticateToken, async (req, res) => {
     let summaryHistory;
     
     if (mongoose.connection.readyState === 1) {
+      console.log('Using MongoDB for summary history deletion');
       summaryHistory = await user.removeSummaryFromHistory(summaryId);
     } else {
+      console.log('Using fallback auth for summary history deletion');
       summaryHistory = await fallbackAuth.removeSummaryFromHistory(user, summaryId);
     }
     
