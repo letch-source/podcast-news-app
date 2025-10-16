@@ -1,0 +1,15 @@
+{
+  "name": "podcast-news-root",
+  "private": true,
+  "scripts": {
+    "start": "concurrently -k -n BACKEND,FRONTEND -c blue,green \"npm run dev --prefix backend\" \"npm start --prefix news-podcast-frontend\"",
+    "dev": "npm run start",
+    "backend": "npm run dev --prefix news-podcast-backend",
+    "frontend": "npm start --prefix news-podcast-frontend",
+    "build": "npm run build --prefix news-podcast-frontend",
+    "install:all": "npm install --prefix backend && npm install --prefix news-podcast-frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
