@@ -925,10 +925,20 @@ app.post("/api/summarize", optionalAuth, async (req, res) => {
       }
     }
 
+    // Generate a better title based on topics
+    let title = "Summary";
+    if (topics.length === 1) {
+      title = `${topics[0].charAt(0).toUpperCase() + topics[0].slice(1)} Summary`;
+    } else if (topics.length > 1) {
+      title = "Mixed Summary";
+    }
+
     return res.json({
       items,
       combined: {
-        text: combinedText,
+        id: `combined-${Date.now()}`,
+        title: title,
+        summary: combinedText,
         audioUrl: null,
       },
     });
@@ -1082,10 +1092,20 @@ app.post("/api/summarize/batch", optionalAuth, async (req, res) => {
         // For multi-topic, each piece already has its own intro, so just join them
         const combinedText = combinedPieces.join(" ").trim();
 
+        // Generate a better title based on topics
+        let title = "Summary";
+        if (topics.length === 1) {
+          title = `${topics[0].charAt(0).toUpperCase() + topics[0].slice(1)} Summary`;
+        } else if (topics.length > 1) {
+          title = "Mixed Summary";
+        }
+
         return {
           items,
           combined: {
-            text: combinedText,
+            id: `combined-${Date.now()}`,
+            title: title,
+            summary: combinedText,
             audioUrl: null,
           },
         };
