@@ -227,7 +227,10 @@ async function fetchTopHeadlinesByCategory(category, countryCode, maxResults, ex
   if (countryCode) params.set("country", String(countryCode).toLowerCase());
   if (extraQuery) params.set("q", extraQuery);
   if (selectedSources && selectedSources.length > 0) {
+    console.log(`Filtering by sources: ${selectedSources.join(",")}`);
     params.set("sources", selectedSources.join(","));
+  } else {
+    console.log(`No source filtering applied (using all sources)`);
   }
   params.set("pageSize", String(pageSize));
   const url = `https://newsapi.org/v2/top-headlines?${params.toString()}`;
@@ -768,8 +771,24 @@ app.post("/api/summarize", optionalAuth, async (req, res) => {
       if (user) {
         const preferences = user.getPreferences();
         selectedSources = preferences.selectedNewsSources || [];
+        
+        console.log(`Premium user ${req.user.id} has ${selectedSources.length} sources selected:`, selectedSources);
+        
+        // If user has made selections but has less than 5 sources, return error
+        if (selectedSources.length > 0 && selectedSources.length < 5) {
+          return res.status(400).json({
+            error: "Insufficient news sources",
+            message: `Please select at least 5 news sources. You currently have ${selectedSources.length} selected.`,
+            selectedCount: selectedSources.length,
+            requiredCount: 5
+          });
+        }
       }
+    } else {
+      console.log(`Non-premium user, using all sources`);
     }
+    
+    // If no sources selected (or not premium), use all available sources (empty array means no filtering)
 
     const items = [];
     const combinedPieces = [];
@@ -1056,8 +1075,20 @@ app.post("/api/summarize/batch", optionalAuth, async (req, res) => {
       if (user) {
         const preferences = user.getPreferences();
         selectedSources = preferences.selectedNewsSources || [];
+        
+        // If user has made selections but has less than 5 sources, return error
+        if (selectedSources.length > 0 && selectedSources.length < 5) {
+          return res.status(400).json({
+            error: "Insufficient news sources",
+            message: `Please select at least 5 news sources. You currently have ${selectedSources.length} selected.`,
+            selectedCount: selectedSources.length,
+            requiredCount: 5
+          });
+        }
       }
     }
+    
+    // If no sources selected (or not premium), use all available sources (empty array means no filtering)
 
     const results = await Promise.all(
       batches.map(async (b) => {
