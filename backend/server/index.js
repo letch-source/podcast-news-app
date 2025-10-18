@@ -205,7 +205,7 @@ const CORE_CATEGORIES = new Set([
   "world", // not a NewsAPI category; fallback to q=world
 ]);
 
-async function fetchArticlesEverything(qParts, maxResults) {
+async function fetchArticlesEverything(qParts, maxResults, selectedSources = []) {
   const q = encodeURIComponent(qParts.filter(Boolean).join(" "));
   const pageSize = Math.min(Math.max(Number(maxResults) || 5, 1), 50);
   // Prefer recent coverage window to improve relevance/locality
