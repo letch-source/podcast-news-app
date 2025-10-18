@@ -297,7 +297,7 @@ async function toggleUserPremium(email, isPremium) {
     }
     
     try {
-        const response = await fetch('/api/admin/set-premium', {
+        const response = await fetch('/api/auth/admin/set-premium', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
