@@ -314,7 +314,9 @@ async function toggleUserPremium(email, isPremium) {
             alert(`User ${isPremium ? 'upgraded to' : 'downgraded from'} premium successfully`);
             loadUsersData();
         } else {
-            alert('Failed to update user status');
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            console.error('Admin API error:', errorData);
+            alert(`Failed to update user status: ${errorData.error || 'Unknown error'}`);
         }
     } catch (error) {
         console.error('Error updating user:', error);

@@ -206,46 +206,6 @@ router.get('/usage', authenticateToken, async (req, res) => {
   }
 });
 
-// Admin endpoint to manually set premium status (for testing)
-router.post('/admin/set-premium', async (req, res) => {
-  try {
-    const { email, isPremium } = req.body;
-    
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
-    
-    let user;
-    if (isDatabaseAvailable()) {
-      const User = require('../models/User');
-      user = await User.findOne({ email });
-      if (user) {
-        await user.updateSubscription(isPremium, 'admin-test', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)); // 30 days
-      }
-    } else {
-      user = await fallbackAuth.findUserByEmail(email);
-      if (user) {
-        await fallbackAuth.updateSubscription(user, isPremium, 'admin-test', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
-      }
-    }
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    res.json({
-      message: `User ${isPremium ? 'upgraded to' : 'downgraded from'} premium`,
-      user: {
-        id: user._id,
-        email: user.email,
-        isPremium: user.isPremium
-      }
-    });
-  } catch (error) {
-    console.error('Admin premium update error:', error);
-    res.status(500).json({ error: 'Failed to update premium status' });
-  }
-});
 
 // Request password reset
 router.post('/forgot-password', async (req, res) => {
@@ -384,13 +344,18 @@ router.post('/admin/set-premium', authenticateToken, async (req, res) => {
       await targetUser.save();
       
       // Log admin action
-      const AdminAction = require('../models/AdminAction');
-      await AdminAction.create({
-        adminEmail: adminUser.email,
-        targetEmail: email,
-        action: isPremium ? 'set_premium' : 'set_free',
-        details: `Premium status ${isPremium ? 'granted' : 'removed'} by admin`
-      });
+      try {
+        const AdminAction = require('../models/AdminAction');
+        await AdminAction.create({
+          adminEmail: adminUser.email,
+          targetEmail: email,
+          action: isPremium ? 'set_premium' : 'set_free',
+          details: `Premium status ${isPremium ? 'granted' : 'removed'} by admin`
+        });
+      } catch (logError) {
+        console.error('Failed to log admin action:', logError);
+        // Don't fail the main operation if logging fails
+      }
       
       console.log(`Admin ${adminUser.email} set premium status for ${email} to ${isPremium}`);
       
@@ -435,6 +400,12 @@ router.post('/admin/set-premium', authenticateToken, async (req, res) => {
     
   } catch (error) {
     console.error('Set premium status error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      email: req.body?.email,
+      isPremium: req.body?.isPremium
+    });
     res.status(500).json({ error: 'Failed to set premium status' });
   }
 });
