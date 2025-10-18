@@ -47,6 +47,28 @@ const userSchema = new mongoose.Schema({
     type: [String],
     default: []
   },
+  // User preferences
+  preferences: {
+    selectedVoice: {
+      type: String,
+      default: 'Alloy',
+      enum: ['Alloy', 'Echo', 'Fable', 'Onyx', 'Nova', 'Shimmer']
+    },
+    playbackRate: {
+      type: Number,
+      default: 1.0,
+      min: 0.5,
+      max: 2.0
+    },
+    upliftingNewsOnly: {
+      type: Boolean,
+      default: false
+    },
+    lastFetchedTopics: {
+      type: [String],
+      default: []
+    }
+  },
   summaryHistory: [{
     id: String,
     title: String,
@@ -167,6 +189,34 @@ userSchema.methods.removeCustomTopic = async function(topic) {
 
 userSchema.methods.getCustomTopics = function() {
   return this.customTopics;
+};
+
+// User preferences management
+userSchema.methods.updatePreferences = async function(preferences) {
+  if (preferences.selectedVoice) {
+    this.preferences.selectedVoice = preferences.selectedVoice;
+  }
+  if (preferences.playbackRate !== undefined) {
+    this.preferences.playbackRate = Math.max(0.5, Math.min(2.0, preferences.playbackRate));
+  }
+  if (preferences.upliftingNewsOnly !== undefined) {
+    this.preferences.upliftingNewsOnly = preferences.upliftingNewsOnly;
+  }
+  if (preferences.lastFetchedTopics) {
+    this.preferences.lastFetchedTopics = preferences.lastFetchedTopics;
+  }
+  
+  await this.save();
+  return this.preferences;
+};
+
+userSchema.methods.getPreferences = function() {
+  return this.preferences || {
+    selectedVoice: 'Alloy',
+    playbackRate: 1.0,
+    upliftingNewsOnly: false,
+    lastFetchedTopics: []
+  };
 };
 
 // Summary history management
