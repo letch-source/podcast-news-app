@@ -223,15 +223,20 @@ async function fetchArticlesEverything(qParts, maxResults) {
 async function fetchTopHeadlinesByCategory(category, countryCode, maxResults, extraQuery, selectedSources = []) {
   const pageSize = Math.min(Math.max(Number(maxResults) || 5, 1), 50);
   const params = new URLSearchParams();
-  if (category) params.set("category", category);
-  if (countryCode) params.set("country", String(countryCode).toLowerCase());
-  if (extraQuery) params.set("q", extraQuery);
+  
+  // NewsAPI doesn't allow mixing sources with category/country parameters
   if (selectedSources && selectedSources.length > 0) {
     console.log(`Filtering by sources: ${selectedSources.join(",")}`);
     params.set("sources", selectedSources.join(","));
+    // When using sources, we can't use category or country
   } else {
     console.log(`No source filtering applied (using all sources)`);
+    // When not using sources, we can use category and country
+    if (category) params.set("category", category);
+    if (countryCode) params.set("country", String(countryCode).toLowerCase());
   }
+  
+  if (extraQuery) params.set("q", extraQuery);
   params.set("pageSize", String(pageSize));
   const url = `https://newsapi.org/v2/top-headlines?${params.toString()}`;
   console.log(`Final NewsAPI URL: ${url}`);
