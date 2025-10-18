@@ -137,6 +137,7 @@ const ALLOWED_ORIGINS = new Set(
     "http://localhost:3000",
     "http://localhost:5173",
     FRONTEND_ORIGIN,
+    "https://fetchnews-backend.onrender.com", // Admin dashboard
   ].filter(Boolean)
 );
 
@@ -145,7 +146,22 @@ app.use(
     origin(origin, cb) {
       // Allow same-origin / non-browser requests with no Origin header
       if (!origin) return cb(null, true);
-      if (ALLOWED_ORIGINS.has(origin)) return cb(null, true);
+      
+      console.log(`CORS request from origin: ${origin}`);
+      console.log(`Allowed origins:`, Array.from(ALLOWED_ORIGINS));
+      
+      if (ALLOWED_ORIGINS.has(origin)) {
+        console.log(`Origin ${origin} is allowed`);
+        return cb(null, true);
+      }
+      
+      // Allow admin dashboard requests from the same domain
+      if (origin && origin.includes('fetchnews-backend.onrender.com')) {
+        console.log(`Allowing admin dashboard origin: ${origin}`);
+        return cb(null, true);
+      }
+      
+      console.log(`Origin ${origin} is not allowed`);
       return cb(new Error(`Not allowed by CORS: ${origin}`), false);
     },
     credentials: true,
