@@ -20,6 +20,12 @@ router.post('/verify', async (req, res) => {
   try {
     const { adminToken } = req.body;
     
+    console.log('Admin token verification attempt:', {
+      provided: adminToken ? adminToken.substring(0, 10) + '...' : 'none',
+      expected: process.env.ADMIN_SECRET_TOKEN ? process.env.ADMIN_SECRET_TOKEN.substring(0, 10) + '...' : 'none',
+      match: adminToken === process.env.ADMIN_SECRET_TOKEN
+    });
+    
     if (adminToken === process.env.ADMIN_SECRET_TOKEN) {
       res.json({ success: true });
     } else {
@@ -322,26 +328,6 @@ router.delete('/delete-user', verifyAdminToken, async (req, res) => {
   } catch (error) {
     console.error('Delete user error:', error);
     res.status(500).json({ error: 'Failed to delete user' });
-  }
-});
-
-// Update admin token
-router.post('/update-token', verifyAdminToken, async (req, res) => {
-  try {
-    const { newToken, adminToken } = req.body;
-    
-    if (!newToken) {
-      return res.status(400).json({ error: 'New token is required' });
-    }
-    
-    // In a real application, you would update this in your environment variables
-    // For now, we'll just log the request
-    console.log(`Admin token update requested. New token: ${newToken.substring(0, 10)}...`);
-    
-    res.json({ message: 'Admin token update requested. Please update your environment variables.' });
-  } catch (error) {
-    console.error('Update token error:', error);
-    res.status(500).json({ error: 'Failed to update token' });
   }
 });
 

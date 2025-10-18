@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Token Test</title>
+</head>
+<body>
+    <h1>Admin Token Test</h1>
+    <form id="testForm">
+        <input type="text" id="token" placeholder="Enter admin token" style="width: 500px;">
+        <button type="submit">Test Token</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('testForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const token = document.getElementById('token').value;
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                const response = await fetch('/api/admin/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ adminToken: token })
+                });
+                
+                const data = await response.json();
+                resultDiv.innerHTML = `<p>Status: ${response.status}</p><p>Response: ${JSON.stringify(data)}</p>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

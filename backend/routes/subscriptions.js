@@ -15,7 +15,8 @@ router.post('/validate-receipt', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Receipt and transaction ID are required' });
     }
 
-    // Validate receipt with Apple's servers
+    // For now, we'll simulate receipt validation
+    // In production, you would validate with Apple's servers
     const isValidReceipt = await validateReceiptWithApple(receipt, transactionID);
 
     if (!isValidReceipt) {
@@ -48,7 +49,7 @@ router.post('/validate-receipt', authenticateToken, async (req, res) => {
   }
 });
 
-// Validate StoreKit 2 JWS receipt with Apple's servers
+// Validate StoreKit 2 JWS receipt
 async function validateReceiptWithApple(jwsReceipt, transactionID) {
   try {
     // For StoreKit 2, we need to validate JWS (JSON Web Signature) receipts

@@ -82,8 +82,7 @@ function showSection(section) {
         'overview': 'Dashboard Overview',
         'users': 'User Management',
         'analytics': 'Analytics',
-        'subscriptions': 'Subscription Management',
-        'settings': 'Admin Settings'
+        'subscriptions': 'Subscription Management'
     };
     document.getElementById('pageTitle').textContent = titles[section];
     
@@ -113,7 +112,13 @@ function setActiveNavItem(section) {
     document.querySelectorAll('.nav-item').forEach(el => {
         el.classList.remove('bg-gray-700');
     });
-    event?.target?.closest('.nav-item')?.classList.add('bg-gray-700');
+    // Find the nav item for the current section and make it active
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        if (item.textContent.toLowerCase().includes(section.toLowerCase())) {
+            item.classList.add('bg-gray-700');
+        }
+    });
 }
 
 // Load dashboard data
@@ -455,43 +460,6 @@ function updateSubscriptionStats(data) {
     document.getElementById('activeSubscriptions').textContent = data.activeSubscriptions || 0;
     document.getElementById('monthlyRevenue').textContent = `$${data.monthlyRevenue || 0}`;
     document.getElementById('conversionRate').textContent = `${data.conversionRate || 0}%`;
-}
-
-// Update admin token
-async function updateAdminToken() {
-    const newToken = document.getElementById('newAdminToken').value;
-    if (!newToken) {
-        alert('Please enter a new admin token');
-        return;
-    }
-    
-    if (!confirm('Are you sure you want to update the admin token? You will need to log in again.')) {
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/admin/update-token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${adminToken}`
-            },
-            body: JSON.stringify({
-                newToken: newToken,
-                adminToken: adminToken
-            })
-        });
-        
-        if (response.ok) {
-            alert('Admin token updated successfully');
-            logout();
-        } else {
-            alert('Failed to update admin token');
-        }
-    } catch (error) {
-        console.error('Error updating token:', error);
-        alert('Error updating admin token');
-    }
 }
 
 // Update last updated timestamp
