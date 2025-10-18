@@ -60,7 +60,34 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// Remove a custom topic
+// Remove a custom topic (POST method for better handling of special characters)
+router.post('/remove', authenticateToken, async (req, res) => {
+  try {
+    const { topic } = req.body;
+    const user = req.user;
+    
+    if (!topic) {
+      return res.status(400).json({ error: 'Topic is required' });
+    }
+    
+    let customTopics;
+    if (mongoose.connection.readyState === 1) {
+      customTopics = await user.removeCustomTopic(topic);
+    } else {
+      customTopics = await fallbackAuth.removeCustomTopic(user, topic);
+    }
+    
+    res.json({ 
+      message: 'Custom topic removed successfully',
+      customTopics 
+    });
+  } catch (error) {
+    console.error('Remove custom topic error:', error);
+    res.status(500).json({ error: 'Failed to remove custom topic' });
+  }
+});
+
+// Remove a custom topic (legacy DELETE method)
 router.delete('/:topic', authenticateToken, async (req, res) => {
   try {
     const { topic } = req.params;
