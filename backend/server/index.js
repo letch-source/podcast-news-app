@@ -18,6 +18,7 @@ const authRoutes = require("../routes/auth");
 const subscriptionRoutes = require("../routes/subscriptions");
 const customTopicsRoutes = require("../routes/customTopics");
 const summaryHistoryRoutes = require("../routes/summaryHistory");
+const adminRoutes = require("../routes/admin");
 const fallbackAuth = require("../utils/fallbackAuth");
 
 // Connect to MongoDB
@@ -82,6 +83,12 @@ app.use("/api/custom-topics", customTopicsRoutes);
 
 // Summary history routes
 app.use("/api/summary-history", summaryHistoryRoutes);
+
+// Admin routes
+app.use("/api/admin", adminRoutes);
+
+// Serve admin website
+app.use("/admin", express.static(path.join(__dirname, "../../admin")));
 
 // --- Config & helpers ---
 const PORT = process.env.PORT || 3001;

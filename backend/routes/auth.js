@@ -110,6 +110,9 @@ router.post('/login', async (req, res) => {
     // Generate token
     const token = generateToken(user._id);
 
+    // Log login for analytics
+    console.log(`User login: ${user.email} at ${new Date().toISOString()}`);
+
     res.json({
       message: 'Login successful',
       token,
@@ -206,10 +209,15 @@ router.get('/usage', authenticateToken, async (req, res) => {
   }
 });
 
-// Admin endpoint to manually set premium status (for testing)
+// Secure admin endpoint (requires admin token)
 router.post('/admin/set-premium', async (req, res) => {
   try {
-    const { email, isPremium } = req.body;
+    const { email, isPremium, adminToken } = req.body;
+    
+    // Verify admin token
+    if (adminToken !== process.env.ADMIN_SECRET_TOKEN) {
+      return res.status(403).json({ error: 'Invalid admin token' });
+    }
     
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
@@ -220,18 +228,21 @@ router.post('/admin/set-premium', async (req, res) => {
       const User = require('../models/User');
       user = await User.findOne({ email });
       if (user) {
-        await user.updateSubscription(isPremium, 'admin-test', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)); // 30 days
+        await user.updateSubscription(isPremium, 'admin-set', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)); // 30 days
       }
     } else {
       user = await fallbackAuth.findUserByEmail(email);
       if (user) {
-        await fallbackAuth.updateSubscription(user, isPremium, 'admin-test', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+        await fallbackAuth.updateSubscription(user, isPremium, 'admin-set', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
       }
     }
     
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
+    
+    // Log admin action
+    console.log(`Admin action: User ${email} ${isPremium ? 'upgraded to' : 'downgraded from'} premium`);
     
     res.json({
       message: `User ${isPremium ? 'upgraded to' : 'downgraded from'} premium`,

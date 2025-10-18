@@ -1,0 +1,348 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const fallbackAuth = require('../utils/fallbackAuth');
+
+const router = express.Router();
+
+// Middleware to verify admin token
+const verifyAdminToken = (req, res, next) => {
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.body.adminToken;
+  
+  if (!token || token !== process.env.ADMIN_SECRET_TOKEN) {
+    return res.status(403).json({ error: 'Invalid admin token' });
+  }
+  
+  next();
+};
+
+// Verify admin token endpoint
+router.post('/verify', async (req, res) => {
+  try {
+    const { adminToken } = req.body;
+    
+    if (adminToken === process.env.ADMIN_SECRET_TOKEN) {
+      res.json({ success: true });
+    } else {
+      res.status(403).json({ error: 'Invalid admin token' });
+    }
+  } catch (error) {
+    console.error('Admin verification error:', error);
+    res.status(500).json({ error: 'Verification failed' });
+  }
+});
+
+// Get dashboard overview
+router.get('/overview', verifyAdminToken, async (req, res) => {
+  try {
+    let stats = {
+      totalUsers: 0,
+      premiumUsers: 0,
+      dailySummaries: 0,
+      revenue: 0,
+      userGrowth: {
+        labels: [],
+        data: []
+      },
+      dailyUsage: {
+        labels: [],
+        data: []
+      }
+    };
+
+    if (mongoose.connection.readyState === 1) {
+      const User = require('../models/User');
+      
+      // Get user statistics
+      const totalUsers = await User.countDocuments();
+      const premiumUsers = await User.countDocuments({ isPremium: true });
+      
+      // Get daily summaries (sum of dailyUsageCount for today)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const users = await User.find({ lastUsageDate: { $gte: today } });
+      const dailySummaries = users.reduce((sum, user) => sum + (user.dailyUsageCount || 0), 0);
+      
+      // Calculate revenue (premium users * $3.99)
+      const revenue = premiumUsers * 3.99;
+      
+      // Get user growth data (last 7 days)
+      const userGrowthData = [];
+      const userGrowthLabels = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        date.setHours(0, 0, 0, 0);
+        
+        const nextDate = new Date(date);
+        nextDate.setDate(nextDate.getDate() + 1);
+        
+        const newUsers = await User.countDocuments({
+          createdAt: { $gte: date, $lt: nextDate }
+        });
+        
+        userGrowthData.push(newUsers);
+        userGrowthLabels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+      }
+      
+      // Get daily usage data (last 7 days)
+      const dailyUsageData = [];
+      const dailyUsageLabels = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        date.setHours(0, 0, 0, 0);
+        
+        const nextDate = new Date(date);
+        nextDate.setDate(nextDate.getDate() + 1);
+        
+        const users = await User.find({
+          lastUsageDate: { $gte: date, $lt: nextDate }
+        });
+        
+        const dailyUsage = users.reduce((sum, user) => sum + (user.dailyUsageCount || 0), 0);
+        dailyUsageData.push(dailyUsage);
+        dailyUsageLabels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+      }
+      
+      stats = {
+        totalUsers,
+        premiumUsers,
+        dailySummaries,
+        revenue: Math.round(revenue * 100) / 100,
+        userGrowth: {
+          labels: userGrowthLabels,
+          data: userGrowthData
+        },
+        dailyUsage: {
+          labels: dailyUsageLabels,
+          data: dailyUsageData
+        }
+      };
+    } else {
+      // Fallback for when database is not available
+      const fallbackUsers = Array.from(fallbackAuth.fallbackUsers?.values() || []);
+      stats = {
+        totalUsers: fallbackUsers.length,
+        premiumUsers: fallbackUsers.filter(u => u.isPremium).length,
+        dailySummaries: fallbackUsers.reduce((sum, user) => sum + (user.dailyUsageCount || 0), 0),
+        revenue: fallbackUsers.filter(u => u.isPremium).length * 3.99,
+        userGrowth: {
+          labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+          data: [0, 0, 0, 0, 0, 0, 0]
+        },
+        dailyUsage: {
+          labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+          data: [0, 0, 0, 0, 0, 0, 0]
+        }
+      };
+    }
+
+    res.json(stats);
+  } catch (error) {
+    console.error('Overview data error:', error);
+    res.status(500).json({ error: 'Failed to load overview data' });
+  }
+});
+
+// Get all users
+router.get('/users', verifyAdminToken, async (req, res) => {
+  try {
+    let users = [];
+
+    if (mongoose.connection.readyState === 1) {
+      const User = require('../models/User');
+      const dbUsers = await User.find({}).sort({ createdAt: -1 });
+      users = dbUsers.map(user => ({
+        id: user._id,
+        email: user.email,
+        isPremium: user.isPremium,
+        dailyUsageCount: user.dailyUsageCount,
+        createdAt: user.createdAt,
+        subscriptionId: user.subscriptionId,
+        subscriptionExpiresAt: user.subscriptionExpiresAt
+      }));
+    } else {
+      // Fallback for when database is not available
+      const fallbackUsers = Array.from(fallbackAuth.fallbackUsers?.values() || []);
+      users = fallbackUsers.map(user => ({
+        id: user._id,
+        email: user.email,
+        isPremium: user.isPremium,
+        dailyUsageCount: user.dailyUsageCount,
+        createdAt: user.createdAt,
+        subscriptionId: user.subscriptionId,
+        subscriptionExpiresAt: user.subscriptionExpiresAt
+      }));
+    }
+
+    res.json(users);
+  } catch (error) {
+    console.error('Users data error:', error);
+    res.status(500).json({ error: 'Failed to load users' });
+  }
+});
+
+// Get analytics data
+router.get('/analytics', verifyAdminToken, async (req, res) => {
+  try {
+    let analytics = {
+      popularTopics: {
+        labels: [],
+        data: []
+      },
+      summaryLengths: {
+        labels: ['Short', 'Medium', 'Long'],
+        data: [0, 0, 0]
+      }
+    };
+
+    if (mongoose.connection.readyState === 1) {
+      const User = require('../models/User');
+      
+      // Get popular topics from summary history
+      const users = await User.find({ 'summaryHistory.0': { $exists: true } });
+      const topicCounts = {};
+      const lengthCounts = { short: 0, medium: 0, long: 0 };
+      
+      users.forEach(user => {
+        if (user.summaryHistory) {
+          user.summaryHistory.forEach(summary => {
+            // Count topics
+            if (summary.topics) {
+              summary.topics.forEach(topic => {
+                topicCounts[topic] = (topicCounts[topic] || 0) + 1;
+              });
+            }
+            
+            // Count lengths
+            if (summary.length) {
+              lengthCounts[summary.length] = (lengthCounts[summary.length] || 0) + 1;
+            }
+          });
+        }
+      });
+      
+      // Sort topics by popularity
+      const sortedTopics = Object.entries(topicCounts)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 8);
+      
+      analytics = {
+        popularTopics: {
+          labels: sortedTopics.map(([topic]) => topic),
+          data: sortedTopics.map(([, count]) => count)
+        },
+        summaryLengths: {
+          labels: ['Short', 'Medium', 'Long'],
+          data: [lengthCounts.short || 0, lengthCounts.medium || 0, lengthCounts.long || 0]
+        }
+      };
+    }
+
+    res.json(analytics);
+  } catch (error) {
+    console.error('Analytics data error:', error);
+    res.status(500).json({ error: 'Failed to load analytics' });
+  }
+});
+
+// Get subscription data
+router.get('/subscriptions', verifyAdminToken, async (req, res) => {
+  try {
+    let subscriptionData = {
+      activeSubscriptions: 0,
+      monthlyRevenue: 0,
+      conversionRate: 0
+    };
+
+    if (mongoose.connection.readyState === 1) {
+      const User = require('../models/User');
+      
+      const totalUsers = await User.countDocuments();
+      const premiumUsers = await User.countDocuments({ isPremium: true });
+      const activeSubscriptions = await User.countDocuments({
+        isPremium: true,
+        subscriptionExpiresAt: { $gt: new Date() }
+      });
+      
+      subscriptionData = {
+        activeSubscriptions,
+        monthlyRevenue: Math.round(activeSubscriptions * 3.99 * 100) / 100,
+        conversionRate: totalUsers > 0 ? Math.round((premiumUsers / totalUsers) * 100) : 0
+      };
+    } else {
+      // Fallback for when database is not available
+      const fallbackUsers = Array.from(fallbackAuth.fallbackUsers?.values() || []);
+      const totalUsers = fallbackUsers.length;
+      const premiumUsers = fallbackUsers.filter(u => u.isPremium).length;
+      
+      subscriptionData = {
+        activeSubscriptions: premiumUsers,
+        monthlyRevenue: Math.round(premiumUsers * 3.99 * 100) / 100,
+        conversionRate: totalUsers > 0 ? Math.round((premiumUsers / totalUsers) * 100) : 0
+      };
+    }
+
+    res.json(subscriptionData);
+  } catch (error) {
+    console.error('Subscription data error:', error);
+    res.status(500).json({ error: 'Failed to load subscription data' });
+  }
+});
+
+// Delete user
+router.delete('/delete-user', verifyAdminToken, async (req, res) => {
+  try {
+    const { email, adminToken } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    let deleted = false;
+    
+    if (mongoose.connection.readyState === 1) {
+      const User = require('../models/User');
+      const result = await User.deleteOne({ email });
+      deleted = result.deletedCount > 0;
+    } else {
+      // Fallback for when database is not available
+      if (fallbackAuth.fallbackUsers?.has(email)) {
+        fallbackAuth.fallbackUsers.delete(email);
+        deleted = true;
+      }
+    }
+    
+    if (deleted) {
+      console.log(`Admin action: User ${email} deleted`);
+      res.json({ message: 'User deleted successfully' });
+    } else {
+      res.status(404).json({ error: 'User not found' });
+    }
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// Update admin token
+router.post('/update-token', verifyAdminToken, async (req, res) => {
+  try {
+    const { newToken, adminToken } = req.body;
+    
+    if (!newToken) {
+      return res.status(400).json({ error: 'New token is required' });
+    }
+    
+    // In a real application, you would update this in your environment variables
+    // For now, we'll just log the request
+    console.log(`Admin token update requested. New token: ${newToken.substring(0, 10)}...`);
+    
+    res.json({ message: 'Admin token update requested. Please update your environment variables.' });
+  } catch (error) {
+    console.error('Update token error:', error);
+    res.status(500).json({ error: 'Failed to update token' });
+  }
+});
+
+module.exports = router;
