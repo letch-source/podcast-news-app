@@ -22,6 +22,7 @@ const adminRoutes = require("../routes/admin");
 const preferencesRoutes = require("../routes/preferences");
 const newsSourcesRoutes = require("../routes/newsSources");
 const fallbackAuth = require("../utils/fallbackAuth");
+const User = require("../models/User");
 
 // Connect to MongoDB
 connectDB();
