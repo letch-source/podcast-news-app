@@ -217,6 +217,11 @@ async function fetchArticlesEverything(qParts, maxResults) {
     throw new Error(`NewsAPI error: ${resp.status} ${text}`);
   }
   const data = await resp.json();
+  console.log(`NewsAPI returned ${data.articles?.length || 0} articles`);
+  if (selectedSources && selectedSources.length > 0 && data.articles?.length > 0) {
+    const sources = [...new Set(data.articles.map(a => a.source?.id).filter(Boolean))];
+    console.log(`Articles came from sources: ${sources.join(", ")}`);
+  }
   return Array.isArray(data.articles) ? data.articles : [];
 }
 
@@ -246,6 +251,11 @@ async function fetchTopHeadlinesByCategory(category, countryCode, maxResults, ex
     throw new Error(`NewsAPI error: ${resp.status} ${text}`);
   }
   const data = await resp.json();
+  console.log(`NewsAPI returned ${data.articles?.length || 0} articles`);
+  if (selectedSources && selectedSources.length > 0 && data.articles?.length > 0) {
+    const sources = [...new Set(data.articles.map(a => a.source?.id).filter(Boolean))];
+    console.log(`Articles came from sources: ${sources.join(", ")}`);
+  }
   return Array.isArray(data.articles) ? data.articles : [];
 }
 
