@@ -435,6 +435,38 @@ function createAnalyticsCharts(data) {
             }
         }
     });
+
+    // Daily Summaries Chart
+    const dailyCtx = document.getElementById('dailySummariesChart').getContext('2d');
+    if (charts.dailySummaries) charts.dailySummaries.destroy();
+    charts.dailySummaries = new Chart(dailyCtx, {
+        type: 'line',
+        data: {
+            labels: data.dailySummaries?.labels || [],
+            datasets: [{
+                label: 'Daily Summaries',
+                data: data.dailySummaries?.data || [],
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
 }
 
 // Load subscriptions data

@@ -44,7 +44,12 @@ const userSchema = new mongoose.Schema({
     summary: String,
     topics: [String],
     length: String,
+    wordCount: Number,
     timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    createdAt: {
       type: Date,
       default: Date.now
     },
@@ -146,7 +151,9 @@ userSchema.methods.addSummaryToHistory = async function(summaryData) {
     summary: summaryData.summary,
     topics: summaryData.topics || [],
     length: summaryData.length || 'short',
+    wordCount: summaryData.wordCount || 0,
     timestamp: new Date(),
+    createdAt: new Date(),
     audioUrl: summaryData.audioUrl,
     sources: summaryData.sources || []
   };

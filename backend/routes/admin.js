@@ -68,8 +68,13 @@ router.get('/overview', verifyAdminToken, async (req, res) => {
       const users = await User.find({ lastUsageDate: { $gte: today } });
       const dailySummaries = users.reduce((sum, user) => sum + (user.dailyUsageCount || 0), 0);
       
-      // Calculate revenue (premium users * $3.99)
-      const revenue = premiumUsers * 3.99;
+      // Calculate revenue (only users with active paid subscriptions)
+      const paidPremiumUsers = await User.countDocuments({ 
+        isPremium: true,
+        subscriptionId: { $exists: true, $ne: null },
+        subscriptionExpiresAt: { $gt: new Date() }
+      });
+      const revenue = paidPremiumUsers * 3.99;
       
       // Get user growth data (last 7 days)
       const userGrowthData = [];
@@ -131,7 +136,7 @@ router.get('/overview', verifyAdminToken, async (req, res) => {
         totalUsers: fallbackUsers.length,
         premiumUsers: fallbackUsers.filter(u => u.isPremium).length,
         dailySummaries: fallbackUsers.reduce((sum, user) => sum + (user.dailyUsageCount || 0), 0),
-        revenue: fallbackUsers.filter(u => u.isPremium).length * 3.99,
+        revenue: fallbackUsers.filter(u => u.isPremium && u.subscriptionId && u.subscriptionExpiresAt > new Date()).length * 3.99,
         userGrowth: {
           labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
           data: [0, 0, 0, 0, 0, 0, 0]
@@ -197,8 +202,12 @@ router.get('/analytics', verifyAdminToken, async (req, res) => {
         data: []
       },
       summaryLengths: {
-        labels: ['Short', 'Medium', 'Long'],
+        labels: ['Short (≤200)', 'Medium (201-800)', 'Long (801+)'],
         data: [0, 0, 0]
+      },
+      dailySummaries: {
+        labels: [],
+        data: []
       }
     };
 
@@ -209,6 +218,7 @@ router.get('/analytics', verifyAdminToken, async (req, res) => {
       const users = await User.find({ 'summaryHistory.0': { $exists: true } });
       const topicCounts = {};
       const lengthCounts = { short: 0, medium: 0, long: 0 };
+      const dailySummaryCounts = {};
       
       users.forEach(user => {
         if (user.summaryHistory) {
@@ -220,9 +230,22 @@ router.get('/analytics', verifyAdminToken, async (req, res) => {
               });
             }
             
-            // Count lengths
-            if (summary.length) {
-              lengthCounts[summary.length] = (lengthCounts[summary.length] || 0) + 1;
+            // Count lengths based on word count
+            if (summary.wordCount) {
+              const wordCount = parseInt(summary.wordCount);
+              if (wordCount <= 200) {
+                lengthCounts.short++;
+              } else if (wordCount <= 800) {
+                lengthCounts.medium++;
+              } else {
+                lengthCounts.long++;
+              }
+            }
+            
+            // Count daily summaries
+            if (summary.createdAt) {
+              const date = new Date(summary.createdAt).toISOString().split('T')[0];
+              dailySummaryCounts[date] = (dailySummaryCounts[date] || 0) + 1;
             }
           });
         }
@@ -231,7 +254,18 @@ router.get('/analytics', verifyAdminToken, async (req, res) => {
       // Sort topics by popularity
       const sortedTopics = Object.entries(topicCounts)
         .sort(([,a], [,b]) => b - a)
-        .slice(0, 8);
+        .slice(0, 10);
+      
+      // Get last 7 days of summary data
+      const dailyLabels = [];
+      const dailyData = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        dailyLabels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        dailyData.push(dailySummaryCounts[dateStr] || 0);
+      }
       
       analytics = {
         popularTopics: {
@@ -239,8 +273,12 @@ router.get('/analytics', verifyAdminToken, async (req, res) => {
           data: sortedTopics.map(([, count]) => count)
         },
         summaryLengths: {
-          labels: ['Short', 'Medium', 'Long'],
+          labels: ['Short (≤200)', 'Medium (201-800)', 'Long (801+)'],
           data: [lengthCounts.short || 0, lengthCounts.medium || 0, lengthCounts.long || 0]
+        },
+        dailySummaries: {
+          labels: dailyLabels,
+          data: dailyData
         }
       };
     }
@@ -284,7 +322,7 @@ router.get('/subscriptions', verifyAdminToken, async (req, res) => {
       
       subscriptionData = {
         activeSubscriptions: premiumUsers,
-        monthlyRevenue: Math.round(premiumUsers * 3.99 * 100) / 100,
+        monthlyRevenue: Math.round(fallbackUsers.filter(u => u.isPremium && u.subscriptionId && u.subscriptionExpiresAt > new Date()).length * 3.99 * 100) / 100,
         conversionRate: totalUsers > 0 ? Math.round((premiumUsers / totalUsers) * 100) : 0
       };
     }

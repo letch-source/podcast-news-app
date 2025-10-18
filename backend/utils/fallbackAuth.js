@@ -112,7 +112,9 @@ const fallbackAuth = {
       summary: summaryData.summary,
       topics: summaryData.topics || [],
       length: summaryData.length || 'short',
+      wordCount: summaryData.wordCount || 0,
       timestamp: new Date(),
+      createdAt: new Date(),
       audioUrl: summaryData.audioUrl
     };
     
