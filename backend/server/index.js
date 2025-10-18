@@ -64,8 +64,18 @@ function ensureCompleteSentence(text) {
   }
   
   if (lastMatch) {
-    // Return text up to and including the last complete sentence
-    return text.substring(0, lastMatch.index + 1);
+    // Only truncate if the incomplete part is more than 20% of the text
+    // This prevents aggressive cutting of summaries
+    const completePart = text.substring(0, lastMatch.index + 1);
+    const incompletePart = text.substring(lastMatch.index + 1);
+    
+    if (incompletePart.length > text.length * 0.2) {
+      // If the incomplete part is significant, keep the full text and add a period
+      return text + '.';
+    } else {
+      // If the incomplete part is small, truncate to the complete sentence
+      return completePart;
+    }
   }
   
   // If no sentence endings found, add a period
@@ -368,7 +378,7 @@ async function summarizeArticles(topic, geo, articles, wordCount, goodNewsOnly =
 
     // Optimized podcaster-style prompt for faster processing
     const upliftingPrefix = goodNewsOnly ? "uplifting " : "";
-    const prompt = `Create a ${upliftingPrefix}${topic} news summary in podcast style, approximately ${wordCount} words.
+    const prompt = `Create a ${upliftingPrefix}${topic} news summary in podcast style.
 
 Articles:
 ${articleTexts}
@@ -378,8 +388,8 @@ Requirements:
 - Cover key stories in conversational tone
 - Connect related stories naturally
 - Focus on most significant developments
-- Aim for around ${wordCount} words but ALWAYS end at the end of a complete sentence
-- Do not cut off mid-sentence, even if it means going slightly over the word count`;
+- Target ${wordCount} words exactly
+- End at a complete sentence, even if it means going slightly over the word count`;
 
     console.log(`Sending ${articles.length} articles to ChatGPT for summarization`);
 
@@ -395,7 +405,7 @@ Requirements:
           content: prompt
         }
       ],
-      max_tokens: Math.min(wordCount * 1.5, 1500), // Increased to allow for complete sentences
+      max_tokens: Math.min(wordCount * 2, 2000), // Increased to allow for proper word count targets
       temperature: 0.6, // Reduced for more consistent, faster responses
     });
 

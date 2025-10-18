@@ -202,7 +202,7 @@ router.get('/analytics', verifyAdminToken, async (req, res) => {
         data: []
       },
       summaryLengths: {
-        labels: ['Short (≤200)', 'Medium (201-800)', 'Long (801+)'],
+        labels: ['Short (≤200)', 'Medium (201-1000)', 'Long (1001+)'],
         data: [0, 0, 0]
       },
       dailySummaries: {
@@ -216,6 +216,7 @@ router.get('/analytics', verifyAdminToken, async (req, res) => {
       
       // Get popular topics from summary history
       const users = await User.find({ 'summaryHistory.0': { $exists: true } });
+      console.log(`Found ${users.length} users with summary history`);
       const topicCounts = {};
       const lengthCounts = { short: 0, medium: 0, long: 0 };
       const dailySummaryCounts = {};
@@ -230,12 +231,13 @@ router.get('/analytics', verifyAdminToken, async (req, res) => {
               });
             }
             
-            // Count lengths based on word count
+            // Count lengths based on word count - updated to match actual length options
             if (summary.wordCount) {
               const wordCount = parseInt(summary.wordCount);
+              console.log(`Processing summary with wordCount: ${wordCount}`);
               if (wordCount <= 200) {
                 lengthCounts.short++;
-              } else if (wordCount <= 800) {
+              } else if (wordCount <= 1000) {
                 lengthCounts.medium++;
               } else {
                 lengthCounts.long++;
@@ -243,11 +245,12 @@ router.get('/analytics', verifyAdminToken, async (req, res) => {
             } else if (summary.length) {
               // Fallback to existing length field if wordCount not available
               const length = summary.length.toLowerCase();
-              if (length.includes('short') || length === 'short') {
+              console.log(`Processing summary with length: ${length}`);
+              if (length.includes('short') || length === 'short' || length === '200') {
                 lengthCounts.short++;
-              } else if (length.includes('medium') || length === 'medium') {
+              } else if (length.includes('medium') || length === 'medium' || length === '1000') {
                 lengthCounts.medium++;
-              } else if (length.includes('long') || length === 'long') {
+              } else if (length.includes('long') || length === 'long' || length === '2000') {
                 lengthCounts.long++;
               }
             }
@@ -277,13 +280,15 @@ router.get('/analytics', verifyAdminToken, async (req, res) => {
         dailyData.push(dailySummaryCounts[dateStr] || 0);
       }
       
+      console.log(`Final length counts:`, lengthCounts);
+      
       analytics = {
         popularTopics: {
           labels: sortedTopics.map(([topic]) => topic),
           data: sortedTopics.map(([, count]) => count)
         },
         summaryLengths: {
-          labels: ['Short (≤200)', 'Medium (201-800)', 'Long (801+)'],
+          labels: ['Short (≤200)', 'Medium (201-1000)', 'Long (1001+)'],
           data: [lengthCounts.short || 0, lengthCounts.medium || 0, lengthCounts.long || 0]
         },
         dailySummaries: {
