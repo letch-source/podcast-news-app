@@ -225,18 +225,63 @@ async function fetchArticlesEverything(qParts, maxResults, selectedSources = [])
   return Array.isArray(data.articles) ? data.articles : [];
 }
 
-// Function to ensure variety by getting articles from multiple sources
+// Function to ensure variety by getting articles from multiple sources with progressive time expansion
 async function fetchArticlesWithVariety(selectedSources, maxResults = 10) {
   if (!selectedSources || selectedSources.length === 0) {
     return [];
   }
   
-  console.log(`Ensuring variety from ${selectedSources.length} sources`);
-  const articles = [];
-  const usedSources = new Set();
+  console.log(`Ensuring variety from ${selectedSources.length} sources with progressive time expansion`);
   const targetVariety = Math.min(5, selectedSources.length); // Aim for 5 different sources
   
-  // Try to get at least one article from each source
+  // Progressive time windows: 1h, 2h, 4h, 8h, 16h, 24h
+  const timeWindows = [1, 2, 4, 8, 16, 24]; // hours
+  
+  for (const hours of timeWindows) {
+    console.log(`Trying ${hours} hour(s) time window...`);
+    const articles = [];
+    const usedSources = new Set();
+    const from = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString().slice(0, 10);
+    
+    // Try to get at least one article from each source within this time window
+    for (const source of selectedSources) {
+      if (usedSources.size >= targetVariety) break;
+      
+      try {
+        // Use everything endpoint with time filter for more control
+        const url = `https://newsapi.org/v2/everything?sources=${source}&from=${from}&sortBy=publishedAt&pageSize=1&language=en`;
+        const resp = await fetch(url, { headers: { Authorization: `Bearer ${NEWSAPI_KEY}` } });
+        
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.articles && data.articles.length > 0) {
+            articles.push(data.articles[0]);
+            usedSources.add(source);
+            console.log(`Got article from ${source} (${hours}h window)`);
+          }
+        }
+      } catch (error) {
+        console.log(`Failed to get article from ${source} (${hours}h window): ${error.message}`);
+      }
+    }
+    
+    // If we got enough variety, return the articles
+    if (usedSources.size >= targetVariety) {
+      console.log(`Variety achieved: ${usedSources.size} different sources in ${hours} hour(s)`);
+      return articles;
+    }
+    
+    // If we got some articles but not enough variety, continue to next time window
+    if (articles.length > 0) {
+      console.log(`Got ${usedSources.size} sources in ${hours}h, expanding to next time window...`);
+    }
+  }
+  
+  // If we still don't have enough variety after all time windows, return what we have
+  console.log(`Final attempt: trying top-headlines without time filter for maximum coverage`);
+  const articles = [];
+  const usedSources = new Set();
+  
   for (const source of selectedSources) {
     if (usedSources.size >= targetVariety) break;
     
@@ -249,15 +294,15 @@ async function fetchArticlesWithVariety(selectedSources, maxResults = 10) {
         if (data.articles && data.articles.length > 0) {
           articles.push(data.articles[0]);
           usedSources.add(source);
-          console.log(`Got article from ${source}`);
+          console.log(`Got article from ${source} (no time filter)`);
         }
       }
     } catch (error) {
-      console.log(`Failed to get article from ${source}: ${error.message}`);
+      console.log(`Failed to get article from ${source} (no time filter): ${error.message}`);
     }
   }
   
-  console.log(`Variety achieved: ${usedSources.size} different sources`);
+  console.log(`Final variety achieved: ${usedSources.size} different sources`);
   return articles;
 }
 
