@@ -234,6 +234,7 @@ async function fetchTopHeadlinesByCategory(category, countryCode, maxResults, ex
   }
   params.set("pageSize", String(pageSize));
   const url = `https://newsapi.org/v2/top-headlines?${params.toString()}`;
+  console.log(`Final NewsAPI URL: ${url}`);
   const resp = await fetch(url, { headers: { Authorization: `Bearer ${NEWSAPI_KEY}` } });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
