@@ -308,10 +308,17 @@ router.post('/reset-password', async (req, res) => {
 });
 
 // Admin endpoint to set user premium status
-router.post('/admin/set-premium', authenticateToken, async (req, res) => {
+router.post('/admin/set-premium', async (req, res) => {
   try {
-    const { email, isPremium } = req.body;
-    const adminUser = req.user;
+    const { email, isPremium, adminToken } = req.body;
+    
+    // Verify admin token
+    const token = req.headers.authorization?.replace('Bearer ', '') || adminToken;
+    if (!token || token !== process.env.ADMIN_SECRET_TOKEN) {
+      return res.status(403).json({ error: 'Invalid admin token' });
+    }
+    
+    const adminUser = { email: 'admin' }; // For logging purposes
     
     // Basic validation
     if (!email || typeof isPremium !== 'boolean') {
