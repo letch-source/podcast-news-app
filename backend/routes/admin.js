@@ -240,6 +240,16 @@ router.get('/analytics', verifyAdminToken, async (req, res) => {
               } else {
                 lengthCounts.long++;
               }
+            } else if (summary.length) {
+              // Fallback to existing length field if wordCount not available
+              const length = summary.length.toLowerCase();
+              if (length.includes('short') || length === 'short') {
+                lengthCounts.short++;
+              } else if (length.includes('medium') || length === 'medium') {
+                lengthCounts.medium++;
+              } else if (length.includes('long') || length === 'long') {
+                lengthCounts.long++;
+              }
             }
             
             // Count daily summaries
