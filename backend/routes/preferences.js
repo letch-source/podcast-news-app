@@ -3,6 +3,10 @@ const router = express.Router();
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
 
+// Constants
+const VALID_VOICES = ['Alloy', 'Echo', 'Fable', 'Onyx', 'Nova', 'Shimmer'];
+const VALID_PREFERENCES = ['selectedVoice', 'playbackRate', 'upliftingNewsOnly', 'lastFetchedTopics'];
+
 // Get user preferences
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -30,8 +34,7 @@ router.put('/', authenticateToken, async (req, res) => {
     const { selectedVoice, playbackRate, upliftingNewsOnly, lastFetchedTopics } = req.body;
     
     // Validate input
-    const validVoices = ['Alloy', 'Echo', 'Fable', 'Onyx', 'Nova', 'Shimmer'];
-    if (selectedVoice && !validVoices.includes(selectedVoice)) {
+    if (selectedVoice && !VALID_VOICES.includes(selectedVoice)) {
       return res.status(400).json({ error: 'Invalid voice selection' });
     }
 
@@ -69,15 +72,13 @@ router.patch('/:preference', authenticateToken, async (req, res) => {
     const { value } = req.body;
 
     // Validate preference name
-    const validPreferences = ['selectedVoice', 'playbackRate', 'upliftingNewsOnly', 'lastFetchedTopics'];
-    if (!validPreferences.includes(preference)) {
+    if (!VALID_PREFERENCES.includes(preference)) {
       return res.status(400).json({ error: 'Invalid preference name' });
     }
 
     // Validate value based on preference type
     if (preference === 'selectedVoice') {
-      const validVoices = ['Alloy', 'Echo', 'Fable', 'Onyx', 'Nova', 'Shimmer'];
-      if (!validVoices.includes(value)) {
+      if (!VALID_VOICES.includes(value)) {
         return res.status(400).json({ error: 'Invalid voice selection' });
       }
     } else if (preference === 'playbackRate') {
