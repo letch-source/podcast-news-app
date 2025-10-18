@@ -87,13 +87,21 @@ async function validateReceiptWithApple(jwsReceipt, transactionID) {
       return false;
     }
     
+    // Verify the product ID matches our expected product
+    if (payload.productId !== 'com.fetchnews.premium.monthly') {
+      console.error('Invalid product ID');
+      return false;
+    }
+    
     // For production, you should also verify the JWS signature
     // using Apple's public keys, but for testing we'll accept valid format
+    // TODO: Implement proper JWS signature verification with Apple's public keys
     
     console.log('JWS receipt validated successfully:', {
       transactionId: payload.transactionId,
       productId: payload.productId,
-      expiresDate: payload.expiresDate
+      expiresDate: payload.expiresDate,
+      environment: payload.environment || 'production'
     });
     
     return true;
