@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
-const auth = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 
 // Get user preferences
-router.get('/', auth, async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -20,7 +20,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Update user preferences
-router.put('/', auth, async (req, res) => {
+router.put('/', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -58,7 +58,7 @@ router.put('/', auth, async (req, res) => {
 });
 
 // Update specific preference
-router.patch('/:preference', auth, async (req, res) => {
+router.patch('/:preference', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) {
