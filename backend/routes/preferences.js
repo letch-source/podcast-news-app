@@ -5,7 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 
 // Constants
 const VALID_VOICES = ['Alloy', 'Echo', 'Fable', 'Onyx', 'Nova', 'Shimmer'];
-const VALID_PREFERENCES = ['selectedVoice', 'playbackRate', 'upliftingNewsOnly', 'lastFetchedTopics'];
+const VALID_PREFERENCES = ['selectedVoice', 'playbackRate', 'upliftingNewsOnly', 'lastFetchedTopics', 'selectedNewsSources'];
 
 // Get user preferences
 router.get('/', authenticateToken, async (req, res) => {
@@ -92,6 +92,13 @@ router.patch('/:preference', authenticateToken, async (req, res) => {
     } else if (preference === 'lastFetchedTopics') {
       if (!Array.isArray(value)) {
         return res.status(400).json({ error: 'lastFetchedTopics must be an array' });
+      }
+    } else if (preference === 'selectedNewsSources') {
+      if (!Array.isArray(value)) {
+        return res.status(400).json({ error: 'selectedNewsSources must be an array' });
+      }
+      if (value.length > 20) {
+        return res.status(400).json({ error: 'Maximum 20 news sources allowed' });
       }
     }
 
