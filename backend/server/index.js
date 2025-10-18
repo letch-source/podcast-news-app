@@ -208,8 +208,8 @@ const CORE_CATEGORIES = new Set([
 async function fetchArticlesEverything(qParts, maxResults, selectedSources = []) {
   const q = encodeURIComponent(qParts.filter(Boolean).join(" "));
   const pageSize = Math.min(Math.max(Number(maxResults) || 5, 1), 50);
-  // Prefer recent coverage window to improve relevance/locality
-  const from = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // Extend to 24 hours for more variety
+  const from = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const url = `https://newsapi.org/v2/everything?q=${q}&language=en&sortBy=publishedAt&pageSize=${pageSize}&from=${from}`;
   const resp = await fetch(url, { headers: { Authorization: `Bearer ${NEWSAPI_KEY}` } });
   if (!resp.ok) {
@@ -223,6 +223,42 @@ async function fetchArticlesEverything(qParts, maxResults, selectedSources = [])
     console.log(`Articles came from sources: ${sources.join(", ")}`);
   }
   return Array.isArray(data.articles) ? data.articles : [];
+}
+
+// Function to ensure variety by getting articles from multiple sources
+async function fetchArticlesWithVariety(selectedSources, maxResults = 10) {
+  if (!selectedSources || selectedSources.length === 0) {
+    return [];
+  }
+  
+  console.log(`Ensuring variety from ${selectedSources.length} sources`);
+  const articles = [];
+  const usedSources = new Set();
+  const targetVariety = Math.min(5, selectedSources.length); // Aim for 5 different sources
+  
+  // Try to get at least one article from each source
+  for (const source of selectedSources) {
+    if (usedSources.size >= targetVariety) break;
+    
+    try {
+      const url = `https://newsapi.org/v2/top-headlines?sources=${source}&pageSize=1`;
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${NEWSAPI_KEY}` } });
+      
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.articles && data.articles.length > 0) {
+          articles.push(data.articles[0]);
+          usedSources.add(source);
+          console.log(`Got article from ${source}`);
+        }
+      }
+    } catch (error) {
+      console.log(`Failed to get article from ${source}: ${error.message}`);
+    }
+  }
+  
+  console.log(`Variety achieved: ${usedSources.size} different sources`);
+  return articles;
 }
 
 async function fetchTopHeadlinesByCategory(category, countryCode, maxResults, extraQuery, selectedSources = []) {
@@ -287,24 +323,36 @@ async function fetchArticlesForTopic(topic, geo, maxResults, selectedSources = [
   const isGeneral = normalizedTopic === "general";
 
   if (isGeneral) {
-    // For "general" topic, fetch one article from each of the other 7 base topics
-    const otherTopics = ["business", "entertainment", "health", "science", "sports", "technology", "world"];
-    const promises = otherTopics.map(async (category) => {
-      try {
-        if (category === "world") {
-          // World is not a NewsAPI category, use everything search
-          const worldArticles = await fetchArticlesEverything(["world"], 1);
-          return worldArticles.slice(0, 1);
-        } else {
-          // Use category-based search for other topics
-          const categoryArticles = await fetchTopHeadlinesByCategory(category, countryCode, 1, undefined, selectedSources);
-          return categoryArticles.slice(0, 1);
-        }
-      } catch (error) {
-        console.error(`Error fetching ${category} articles for general topic:`, error);
-        return [];
+    // If we have selected sources, prioritize variety over categories
+    if (selectedSources && selectedSources.length > 0) {
+      console.log(`General topic with selected sources - ensuring variety`);
+      const varietyArticles = await fetchArticlesWithVariety(selectedSources, 7);
+      if (varietyArticles.length > 0) {
+        articles = varietyArticles;
+        console.log(`General topic: fetched ${articles.length} articles with variety from ${selectedSources.length} sources`);
       }
-    });
+    }
+    
+    // Fallback to category-based approach if variety didn't work or no sources selected
+    if (articles.length === 0) {
+      console.log(`General topic: using category-based approach`);
+      const otherTopics = ["business", "entertainment", "health", "science", "sports", "technology", "world"];
+      const promises = otherTopics.map(async (category) => {
+        try {
+          if (category === "world") {
+            // World is not a NewsAPI category, use everything search
+            const worldArticles = await fetchArticlesEverything(["world"], 1, selectedSources);
+            return worldArticles.slice(0, 1);
+          } else {
+            // Use category-based search for other topics
+            const categoryArticles = await fetchTopHeadlinesByCategory(category, countryCode, 1, undefined, selectedSources);
+            return categoryArticles.slice(0, 1);
+          }
+        } catch (error) {
+          console.error(`Error fetching ${category} articles for general topic:`, error);
+          return [];
+        }
+      });
     
     try {
       const results = await Promise.allSettled(promises);
@@ -320,6 +368,7 @@ async function fetchArticlesForTopic(topic, geo, maxResults, selectedSources = [
       // Fallback to regular general category
       articles = await fetchTopHeadlinesByCategory("general", countryCode, pageSize, undefined, selectedSources);
     }
+    } // End of fallback approach
   } else if (isLocal) {
     // Parallel API calls for better performance
     const promises = [];
@@ -364,15 +413,31 @@ async function fetchArticlesForTopic(topic, geo, maxResults, selectedSources = [
     }
   } else if (useCategory) {
     const category = normalizedTopic;
-    // Include a light keyword from region/city if present to bias towards local context
-    const bias = city || region || "";
-    articles = await fetchTopHeadlinesByCategory(category, countryCode, pageSize, bias || undefined, selectedSources);
-    if ((articles?.length || 0) < Math.min(5, pageSize) && bias) {
-      const extra = await fetchArticlesEverything([normalizedTopic, bias], pageSize - (articles?.length || 0));
+    
+    // If we have selected sources, try variety approach first
+    if (selectedSources && selectedSources.length > 0) {
+      console.log(`${category} topic with selected sources - ensuring variety`);
+      const varietyArticles = await fetchArticlesWithVariety(selectedSources, pageSize);
+      if (varietyArticles.length > 0) {
+        articles = varietyArticles;
+        console.log(`${category} topic: fetched ${articles.length} articles with variety from ${selectedSources.length} sources`);
+      }
+    }
+    
+    // Fallback to category-based approach if variety didn't work or no sources selected
+    if (articles.length === 0) {
+      console.log(`${category} topic: using category-based approach`);
+      // Include a light keyword from region/city if present to bias towards local context
+      const bias = city || region || "";
+      articles = await fetchTopHeadlinesByCategory(category, countryCode, pageSize, bias || undefined, selectedSources);
+    }
+    
+    if ((articles?.length || 0) < Math.min(5, pageSize) && (city || region)) {
+      const extra = await fetchArticlesEverything([normalizedTopic, bias], pageSize - (articles?.length || 0), selectedSources);
       articles = [...articles, ...extra];
     }
   } else {
-    articles = await fetchArticlesEverything(queryParts, pageSize);
+    articles = await fetchArticlesEverything(queryParts, pageSize, selectedSources);
   }
 
   const normalized = articles.map((a) => ({
