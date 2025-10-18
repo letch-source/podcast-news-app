@@ -372,7 +372,25 @@ router.post('/admin/set-premium', authenticateToken, async (req, res) => {
       
       // Update premium status
       targetUser.isPremium = isPremium;
+      if (isPremium) {
+        targetUser.premiumSource = 'admin_granted';
+        targetUser.subscriptionId = 'admin-test';
+        targetUser.subscriptionExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
+      } else {
+        targetUser.premiumSource = null;
+        targetUser.subscriptionId = null;
+        targetUser.subscriptionExpiresAt = null;
+      }
       await targetUser.save();
+      
+      // Log admin action
+      const AdminAction = require('../models/AdminAction');
+      await AdminAction.create({
+        adminEmail: adminUser.email,
+        targetEmail: email,
+        action: isPremium ? 'set_premium' : 'set_free',
+        details: `Premium status ${isPremium ? 'granted' : 'removed'} by admin`
+      });
       
       console.log(`Admin ${adminUser.email} set premium status for ${email} to ${isPremium}`);
       
@@ -393,6 +411,15 @@ router.post('/admin/set-premium', authenticateToken, async (req, res) => {
       
       // Update premium status in fallback
       targetUser.isPremium = isPremium;
+      if (isPremium) {
+        targetUser.premiumSource = 'admin_granted';
+        targetUser.subscriptionId = 'admin-test';
+        targetUser.subscriptionExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
+      } else {
+        targetUser.premiumSource = null;
+        targetUser.subscriptionId = null;
+        targetUser.subscriptionExpiresAt = null;
+      }
       fallbackAuth.updateUser(targetUser);
       
       console.log(`Admin ${adminUser.email} set premium status for ${email} to ${isPremium} (fallback)`);

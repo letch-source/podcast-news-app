@@ -29,8 +29,11 @@ router.post('/validate-receipt', authenticateToken, async (req, res) => {
 
     if (mongoose.connection.readyState === 1) {
       await user.updateSubscription(true, subscriptionId, expiresAt);
+      user.premiumSource = 'paid';
+      await user.save();
     } else {
       await fallbackAuth.updateSubscription(user, true, subscriptionId, expiresAt);
+      user.premiumSource = 'paid';
     }
 
     res.json({

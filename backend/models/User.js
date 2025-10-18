@@ -26,6 +26,11 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  premiumSource: {
+    type: String,
+    enum: ['paid', 'admin_granted'],
+    default: null
+  },
   dailyUsageCount: {
     type: Number,
     default: 0

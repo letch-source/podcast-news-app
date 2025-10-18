@@ -68,10 +68,11 @@ router.get('/overview', verifyAdminToken, async (req, res) => {
       const users = await User.find({ lastUsageDate: { $gte: today } });
       const dailySummaries = users.reduce((sum, user) => sum + (user.dailyUsageCount || 0), 0);
       
-      // Calculate revenue (only users with active paid subscriptions)
+      // Calculate revenue (only users with active paid subscriptions, not admin-granted)
       const paidPremiumUsers = await User.countDocuments({ 
         isPremium: true,
-        subscriptionId: { $exists: true, $ne: null },
+        premiumSource: 'paid',
+        subscriptionId: { $exists: true, $ne: null, $ne: 'admin-test' },
         subscriptionExpiresAt: { $gt: new Date() }
       });
       const revenue = paidPremiumUsers * 3.99;
@@ -136,7 +137,7 @@ router.get('/overview', verifyAdminToken, async (req, res) => {
         totalUsers: fallbackUsers.length,
         premiumUsers: fallbackUsers.filter(u => u.isPremium).length,
         dailySummaries: fallbackUsers.reduce((sum, user) => sum + (user.dailyUsageCount || 0), 0),
-        revenue: fallbackUsers.filter(u => u.isPremium && u.subscriptionId && u.subscriptionExpiresAt > new Date()).length * 3.99,
+        revenue: fallbackUsers.filter(u => u.isPremium && u.premiumSource === 'paid' && u.subscriptionId && u.subscriptionId !== 'admin-test' && u.subscriptionExpiresAt > new Date()).length * 3.99,
         userGrowth: {
           labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
           data: [0, 0, 0, 0, 0, 0, 0]
@@ -167,6 +168,7 @@ router.get('/users', verifyAdminToken, async (req, res) => {
         id: user._id,
         email: user.email,
         isPremium: user.isPremium,
+        premiumSource: user.premiumSource,
         dailyUsageCount: user.dailyUsageCount,
         createdAt: user.createdAt,
         subscriptionId: user.subscriptionId,
@@ -179,6 +181,7 @@ router.get('/users', verifyAdminToken, async (req, res) => {
         id: user._id,
         email: user.email,
         isPremium: user.isPremium,
+        premiumSource: user.premiumSource,
         dailyUsageCount: user.dailyUsageCount,
         createdAt: user.createdAt,
         subscriptionId: user.subscriptionId,
@@ -321,6 +324,8 @@ router.get('/subscriptions', verifyAdminToken, async (req, res) => {
       const premiumUsers = await User.countDocuments({ isPremium: true });
       const activeSubscriptions = await User.countDocuments({
         isPremium: true,
+        premiumSource: 'paid',
+        subscriptionId: { $exists: true, $ne: null, $ne: 'admin-test' },
         subscriptionExpiresAt: { $gt: new Date() }
       });
       
@@ -337,7 +342,7 @@ router.get('/subscriptions', verifyAdminToken, async (req, res) => {
       
       subscriptionData = {
         activeSubscriptions: premiumUsers,
-        monthlyRevenue: Math.round(fallbackUsers.filter(u => u.isPremium && u.subscriptionId && u.subscriptionExpiresAt > new Date()).length * 3.99 * 100) / 100,
+        monthlyRevenue: Math.round(fallbackUsers.filter(u => u.isPremium && u.premiumSource === 'paid' && u.subscriptionId && u.subscriptionId !== 'admin-test' && u.subscriptionExpiresAt > new Date()).length * 3.99 * 100) / 100,
         conversionRate: totalUsers > 0 ? Math.round((premiumUsers / totalUsers) * 100) : 0
       };
     }
@@ -346,6 +351,26 @@ router.get('/subscriptions', verifyAdminToken, async (req, res) => {
   } catch (error) {
     console.error('Subscription data error:', error);
     res.status(500).json({ error: 'Failed to load subscription data' });
+  }
+});
+
+// Get admin history
+router.get('/admin-history', verifyAdminToken, async (req, res) => {
+  try {
+    let adminHistory = [];
+    
+    if (mongoose.connection.readyState === 1) {
+      const AdminAction = require('../models/AdminAction');
+      adminHistory = await AdminAction.find()
+        .sort({ timestamp: -1 })
+        .limit(100)
+        .lean();
+    }
+    
+    res.json(adminHistory);
+  } catch (error) {
+    console.error('Admin history error:', error);
+    res.status(500).json({ error: 'Failed to load admin history' });
   }
 });
 

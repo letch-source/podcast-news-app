@@ -82,7 +82,8 @@ function showSection(section) {
         'overview': 'Dashboard Overview',
         'users': 'User Management',
         'analytics': 'Analytics',
-        'subscriptions': 'Subscription Management'
+        'subscriptions': 'Subscription Management',
+        'adminHistory': 'Admin History'
     };
     document.getElementById('pageTitle').textContent = titles[section];
     
@@ -103,6 +104,9 @@ function showSection(section) {
             break;
         case 'subscriptions':
             loadSubscriptionsData();
+            break;
+        case 'adminHistory':
+            loadAdminHistory();
             break;
     }
 }
@@ -262,6 +266,10 @@ function displayUsers(users) {
                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.isPremium ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
                     ${user.isPremium ? 'Premium' : 'Free'}
                 </span>
+                ${user.isPremium && user.premiumSource ? 
+                    `<div class="text-xs text-gray-500 mt-1">${user.premiumSource === 'paid' ? '💰 Paid' : '👑 Admin Granted'}</div>` : 
+                    ''
+                }
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                 ${user.dailyUsageCount || 0}/10
@@ -497,6 +505,75 @@ function updateSubscriptionStats(data) {
 // Update last updated timestamp
 function updateLastUpdated() {
     document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+}
+
+// Load admin history
+async function loadAdminHistory() {
+    try {
+        const response = await fetch('/api/admin/admin-history', {
+            headers: {
+                'Authorization': `Bearer ${adminToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const history = await response.json();
+            displayAdminHistory(history);
+        } else {
+            console.error('Failed to load admin history');
+        }
+    } catch (error) {
+        console.error('Error loading admin history:', error);
+    }
+}
+
+// Display admin history in table
+function displayAdminHistory(history) {
+    const tbody = document.getElementById('adminHistoryTableBody');
+    tbody.innerHTML = '';
+    
+    if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No admin actions found</td></tr>';
+        return;
+    }
+    
+    history.forEach(action => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${action.adminEmail}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${action.targetEmail}</td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getActionColor(action.action)}">
+                    ${formatAction(action.action)}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${action.details || ''}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(action.timestamp).toLocaleString()}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Get color for action type
+function getActionColor(action) {
+    switch (action) {
+        case 'set_premium': return 'bg-green-100 text-green-800';
+        case 'set_free': return 'bg-yellow-100 text-yellow-800';
+        case 'reset_password': return 'bg-blue-100 text-blue-800';
+        case 'delete_user': return 'bg-red-100 text-red-800';
+        default: return 'bg-gray-100 text-gray-800';
+    }
+}
+
+// Format action for display
+function formatAction(action) {
+    switch (action) {
+        case 'set_premium': return 'Grant Premium';
+        case 'set_free': return 'Remove Premium';
+        case 'reset_password': return 'Reset Password';
+        case 'delete_user': return 'Delete User';
+        default: return action;
+    }
 }
 
 // Auto-refresh data every 30 seconds
