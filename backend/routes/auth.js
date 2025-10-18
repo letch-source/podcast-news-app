@@ -196,13 +196,49 @@ router.get('/usage', authenticateToken, async (req, res) => {
       userId: user._id,
       isPremium: user.isPremium,
       dailyCount: user.dailyUsageCount,
-      dailyLimit: 1,
+      dailyLimit: 10,
       canFetch: usageCheck.allowed,
       reason: usageCheck.reason
     });
   } catch (error) {
     console.error('Usage check error:', error);
     res.status(500).json({ error: 'Failed to check usage' });
+  }
+});
+
+// Set user timezone
+router.post('/timezone', authenticateToken, async (req, res) => {
+  try {
+    const { timezone } = req.body;
+    
+    if (!timezone) {
+      return res.status(400).json({ error: 'Timezone is required' });
+    }
+    
+    // Validate timezone format (basic validation)
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: timezone });
+    } catch (e) {
+      return res.status(400).json({ error: 'Invalid timezone format' });
+    }
+    
+    const user = req.user;
+    
+    if (isDatabaseAvailable()) {
+      user.timezone = timezone;
+      await user.save();
+    } else {
+      user.timezone = timezone;
+      fallbackAuth.updateUser(user);
+    }
+    
+    res.json({ 
+      message: 'Timezone updated successfully',
+      timezone: timezone 
+    });
+  } catch (error) {
+    console.error('Timezone update error:', error);
+    res.status(500).json({ error: 'Failed to update timezone' });
   }
 });
 

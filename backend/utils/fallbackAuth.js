@@ -144,11 +144,28 @@ const fallbackAuth = {
   },
   
   canFetchNews(user) {
-    const today = new Date().toDateString();
-    const lastUsageDate = user.lastUsageDate.toDateString();
+    // Get current date in user's timezone
+    const now = new Date();
+    const userTimezone = user.timezone || 'UTC';
     
-    // Reset daily count if it's a new day
-    if (lastUsageDate !== today) {
+    // Get today's date in user's timezone
+    const todayInUserTz = new Intl.DateTimeFormat('en-CA', {
+      timeZone: userTimezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(now);
+    
+    // Get last usage date in user's timezone
+    const lastUsageInUserTz = new Intl.DateTimeFormat('en-CA', {
+      timeZone: userTimezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(user.lastUsageDate);
+    
+    // Reset daily count if it's a new day in user's timezone
+    if (lastUsageInUserTz !== todayInUserTz) {
       user.dailyUsageCount = 0;
       user.lastUsageDate = new Date();
     }

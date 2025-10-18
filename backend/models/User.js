@@ -39,6 +39,10 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  timezone: {
+    type: String,
+    default: 'UTC'
+  },
   customTopics: {
     type: [String],
     default: []
@@ -99,11 +103,28 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
 
 // Check if user can fetch news
 userSchema.methods.canFetchNews = function() {
-  const today = new Date().toDateString();
-  const lastUsageDate = this.lastUsageDate.toDateString();
+  // Get current date in user's timezone
+  const now = new Date();
+  const userTimezone = this.timezone || 'UTC';
   
-  // Reset daily count if it's a new day
-  if (lastUsageDate !== today) {
+  // Get today's date in user's timezone
+  const todayInUserTz = new Intl.DateTimeFormat('en-CA', {
+    timeZone: userTimezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(now);
+  
+  // Get last usage date in user's timezone
+  const lastUsageInUserTz = new Intl.DateTimeFormat('en-CA', {
+    timeZone: userTimezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(this.lastUsageDate);
+  
+  // Reset daily count if it's a new day in user's timezone
+  if (lastUsageInUserTz !== todayInUserTz) {
     this.dailyUsageCount = 0;
     this.lastUsageDate = new Date();
     this.save();
@@ -114,10 +135,10 @@ userSchema.methods.canFetchNews = function() {
     return { allowed: true, reason: 'premium' };
   }
   
-    // Free users limited to 10 summaries per day
-    if (this.dailyUsageCount >= 10) {
-      return { allowed: false, reason: 'daily_limit_reached', dailyCount: this.dailyUsageCount };
-    }
+  // Free users limited to 10 summaries per day
+  if (this.dailyUsageCount >= 10) {
+    return { allowed: false, reason: 'daily_limit_reached', dailyCount: this.dailyUsageCount };
+  }
   
   return { allowed: true, reason: 'free_quota', dailyCount: this.dailyUsageCount };
 };
