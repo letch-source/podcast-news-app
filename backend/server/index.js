@@ -99,6 +99,7 @@ app.use("/api/admin", adminRoutes);
 
 // Serve admin website
 app.use("/admin", express.static(path.join(__dirname, "../../admin")));
+app.use(express.static(path.join(__dirname, "../public")));
 
 // --- Config & helpers ---
 const PORT = process.env.PORT || 3001;
