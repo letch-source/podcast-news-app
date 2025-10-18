@@ -99,6 +99,14 @@ app.use("/api/admin", adminRoutes);
 
 // Serve admin website
 app.use("/admin", express.static(path.join(__dirname, "../../admin")));
+
+// Serve AASA file for password autofill
+app.get("/.well-known/apple-app-site-association", (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.sendFile(path.join(__dirname, "../public/.well-known/apple-app-site-association"));
+});
+
+// Serve other static files
 app.use(express.static(path.join(__dirname, "../public")));
 
 // --- Config & helpers ---
