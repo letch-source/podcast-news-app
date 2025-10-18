@@ -323,14 +323,17 @@ router.post('/admin/set-premium', authenticateToken, async (req, res) => {
     
     let targetUser;
     if (isDatabaseAvailable()) {
+      console.log('Database is available, using MongoDB');
       const User = require('../models/User');
       targetUser = await User.findOne({ email: email.toLowerCase() });
+      console.log('Found user:', targetUser ? targetUser.email : 'null');
       
       if (!targetUser) {
         return res.status(404).json({ error: 'User not found' });
       }
       
       // Update premium status
+      console.log('Updating premium status for user:', email, 'to:', isPremium);
       targetUser.isPremium = isPremium;
       if (isPremium) {
         targetUser.premiumSource = 'admin_granted';
@@ -341,7 +344,9 @@ router.post('/admin/set-premium', authenticateToken, async (req, res) => {
         targetUser.subscriptionId = null;
         targetUser.subscriptionExpiresAt = null;
       }
+      console.log('Saving user with premiumSource:', targetUser.premiumSource);
       await targetUser.save();
+      console.log('User saved successfully');
       
       // Log admin action
       try {
