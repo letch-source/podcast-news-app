@@ -67,6 +67,10 @@ const userSchema = new mongoose.Schema({
     lastFetchedTopics: {
       type: [String],
       default: []
+    },
+    selectedNewsSources: {
+      type: [String],
+      default: []
     }
   },
   summaryHistory: [{
@@ -205,6 +209,9 @@ userSchema.methods.updatePreferences = async function(preferences) {
   if (preferences.lastFetchedTopics) {
     this.preferences.lastFetchedTopics = preferences.lastFetchedTopics;
   }
+  if (preferences.selectedNewsSources) {
+    this.preferences.selectedNewsSources = preferences.selectedNewsSources;
+  }
   
   await this.save();
   return this.preferences;
@@ -215,7 +222,8 @@ userSchema.methods.getPreferences = function() {
     selectedVoice: 'Alloy',
     playbackRate: 1.0,
     upliftingNewsOnly: false,
-    lastFetchedTopics: []
+    lastFetchedTopics: [],
+    selectedNewsSources: []
   };
 };
 

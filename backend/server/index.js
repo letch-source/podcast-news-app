@@ -20,6 +20,7 @@ const customTopicsRoutes = require("../routes/customTopics");
 const summaryHistoryRoutes = require("../routes/summaryHistory");
 const adminRoutes = require("../routes/admin");
 const preferencesRoutes = require("../routes/preferences");
+const newsSourcesRoutes = require("../routes/newsSources");
 const fallbackAuth = require("../utils/fallbackAuth");
 
 // Connect to MongoDB
@@ -100,6 +101,9 @@ app.use("/api/admin", adminRoutes);
 
 // Preferences routes
 app.use("/api/preferences", preferencesRoutes);
+
+// News sources routes
+app.use("/api/news-sources", newsSourcesRoutes);
 
 // Serve admin website
 app.use("/admin", express.static(path.join(__dirname, "../../admin")));
@@ -215,12 +219,15 @@ async function fetchArticlesEverything(qParts, maxResults) {
   return Array.isArray(data.articles) ? data.articles : [];
 }
 
-async function fetchTopHeadlinesByCategory(category, countryCode, maxResults, extraQuery) {
+async function fetchTopHeadlinesByCategory(category, countryCode, maxResults, extraQuery, selectedSources = []) {
   const pageSize = Math.min(Math.max(Number(maxResults) || 5, 1), 50);
   const params = new URLSearchParams();
   if (category) params.set("category", category);
   if (countryCode) params.set("country", String(countryCode).toLowerCase());
   if (extraQuery) params.set("q", extraQuery);
+  if (selectedSources && selectedSources.length > 0) {
+    params.set("sources", selectedSources.join(","));
+  }
   params.set("pageSize", String(pageSize));
   const url = `https://newsapi.org/v2/top-headlines?${params.toString()}`;
   const resp = await fetch(url, { headers: { Authorization: `Bearer ${NEWSAPI_KEY}` } });
@@ -232,7 +239,7 @@ async function fetchTopHeadlinesByCategory(category, countryCode, maxResults, ex
   return Array.isArray(data.articles) ? data.articles : [];
 }
 
-async function fetchArticlesForTopic(topic, geo, maxResults) {
+async function fetchArticlesForTopic(topic, geo, maxResults, selectedSources = []) {
   const queryParts = [topic];
   const countryCode = geo?.country || geo?.countryCode || "";
   const region = geo?.region || geo?.state || "";
@@ -270,7 +277,7 @@ async function fetchArticlesForTopic(topic, geo, maxResults) {
           return worldArticles.slice(0, 1);
         } else {
           // Use category-based search for other topics
-          const categoryArticles = await fetchTopHeadlinesByCategory(category, countryCode, 1);
+          const categoryArticles = await fetchTopHeadlinesByCategory(category, countryCode, 1, undefined, selectedSources);
           return categoryArticles.slice(0, 1);
         }
       } catch (error) {
@@ -291,7 +298,7 @@ async function fetchArticlesForTopic(topic, geo, maxResults) {
     } catch (error) {
       console.error('Error in parallel general topic fetch:', error);
       // Fallback to regular general category
-      articles = await fetchTopHeadlinesByCategory("general", countryCode, pageSize);
+      articles = await fetchTopHeadlinesByCategory("general", countryCode, pageSize, undefined, selectedSources);
     }
   } else if (isLocal) {
     // Parallel API calls for better performance
@@ -299,7 +306,7 @@ async function fetchArticlesForTopic(topic, geo, maxResults) {
     
     if (city) {
       promises.push(
-        fetchTopHeadlinesByCategory("general", countryCode, Math.ceil(pageSize/3), `"${city}"`),
+        fetchTopHeadlinesByCategory("general", countryCode, Math.ceil(pageSize/3), `"${city}"`, selectedSources),
         fetchArticlesEverything([`title:${city}`], Math.ceil(pageSize/3)),
         fetchArticlesEverything([city], Math.ceil(pageSize/3))
       );
@@ -307,7 +314,7 @@ async function fetchArticlesForTopic(topic, geo, maxResults) {
     
     if (region) {
       promises.push(
-        fetchTopHeadlinesByCategory("general", countryCode, Math.ceil(pageSize/3), `"${region}"`),
+        fetchTopHeadlinesByCategory("general", countryCode, Math.ceil(pageSize/3), `"${region}"`, selectedSources),
         fetchArticlesEverything([`title:${region}`], Math.ceil(pageSize/3)),
         fetchArticlesEverything([region], Math.ceil(pageSize/3))
       );
@@ -315,13 +322,13 @@ async function fetchArticlesForTopic(topic, geo, maxResults) {
     
     if (countryCode) {
       promises.push(
-        fetchTopHeadlinesByCategory("general", countryCode, Math.ceil(pageSize/2))
+        fetchTopHeadlinesByCategory("general", countryCode, Math.ceil(pageSize/2), undefined, selectedSources)
       );
     }
     
     // Fallback to general news
     promises.push(
-      fetchTopHeadlinesByCategory("general", "", Math.ceil(pageSize/2))
+      fetchTopHeadlinesByCategory("general", "", Math.ceil(pageSize/2), undefined, selectedSources)
     );
     
     try {
@@ -333,13 +340,13 @@ async function fetchArticlesForTopic(topic, geo, maxResults) {
     } catch (error) {
       console.error('Error in parallel local news fetch:', error);
       // Fallback to single call
-      articles = await fetchTopHeadlinesByCategory("general", countryCode || "", pageSize);
+      articles = await fetchTopHeadlinesByCategory("general", countryCode || "", pageSize, undefined, selectedSources);
     }
   } else if (useCategory) {
     const category = normalizedTopic;
     // Include a light keyword from region/city if present to bias towards local context
     const bias = city || region || "";
-    articles = await fetchTopHeadlinesByCategory(category, countryCode, pageSize, bias || undefined);
+    articles = await fetchTopHeadlinesByCategory(category, countryCode, pageSize, bias || undefined, selectedSources);
     if ((articles?.length || 0) < Math.min(5, pageSize) && bias) {
       const extra = await fetchArticlesEverything([normalizedTopic, bias], pageSize - (articles?.length || 0));
       articles = [...articles, ...extra];
@@ -753,6 +760,16 @@ app.post("/api/summarize", optionalAuth, async (req, res) => {
       return res.status(400).json({ error: "topics must be an array" });
     }
 
+    // Get user's selected news sources (if authenticated and premium)
+    let selectedSources = [];
+    if (req.user && req.user.isPremium) {
+      const user = await User.findById(req.user.id);
+      if (user) {
+        const preferences = user.getPreferences();
+        selectedSources = preferences.selectedNewsSources || [];
+      }
+    }
+
     const items = [];
     const combinedPieces = [];
     const globalCandidates = [];
@@ -828,7 +845,7 @@ app.post("/api/summarize", optionalAuth, async (req, res) => {
           }
         }
         
-        const { articles } = await fetchArticlesForTopic(topic, geoData, perTopic);
+        const { articles } = await fetchArticlesForTopic(topic, geoData, perTopic, selectedSources);
 
         // Optimized pool of unfiltered candidates for global backfill
         for (let idx = 0; idx < articles.length; idx++) {
@@ -1031,6 +1048,16 @@ app.post("/api/summarize/batch", optionalAuth, async (req, res) => {
       return res.status(400).json({ error: "batches must be an array" });
     }
 
+    // Get user's selected news sources (if authenticated and premium)
+    let selectedSources = [];
+    if (req.user && req.user.isPremium) {
+      const user = await User.findById(req.user.id);
+      if (user) {
+        const preferences = user.getPreferences();
+        selectedSources = preferences.selectedNewsSources || [];
+      }
+    }
+
     const results = await Promise.all(
       batches.map(async (b) => {
         const topics = Array.isArray(b.topics) ? b.topics : [];
@@ -1067,7 +1094,7 @@ app.post("/api/summarize/batch", optionalAuth, async (req, res) => {
               countryCode: location
             } : null;
             
-            const { articles } = await fetchArticlesForTopic(topic, geoData, perTopic);
+            const { articles } = await fetchArticlesForTopic(topic, geoData, perTopic, selectedSources);
 
             for (let idx = 0; idx < articles.length; idx++) {
               const a = articles[idx];
